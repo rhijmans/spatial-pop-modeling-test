@@ -1,1 +1,1 @@
-# spatial-pop-modeling
+# Spatial Population Modeling
