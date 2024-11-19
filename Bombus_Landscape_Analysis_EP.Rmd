@@ -1,0 +1,99 @@
+---
+title: "Bombus Landscape Modeling- EP"
+output: html_notebook
+---
+```{r Working Directory and Load Packages, include = FALSE}
+#Set working directory
+knitr::opts_knit$set(root.dir = "~/Documents/GitHub/spatial-pop-modeling/Bombus_Landscape_Analysis/")
+
+#Load libraries
+library(ggplot2)
+library(units)
+library(matrixStats)
+library(sf)
+library(tigris)
+  #Bring in data as sf object
+  options(tigris_class = "sf")
+library(rmapshaper)
+library(geos)
+library(ps)
+library(tidyverse)
+library(tmap)
+library(leaflet)
+library(spData)
+library(dplyr)
+library(raster)
+library(sp)
+library(landscapemetrics)
+  
+library(conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("summarize", "dplyr")
+```
+
+```{r Read in Data}
+#Bumblebee colony data
+bb_colony <- read.csv("Bumblebee_colony_data.csv")
+bb_colony <- bb_colony %>%
+  select(site, featureID, localtypenum, localtype, labdays, initial_workers, rmaxwt, rworkers, ttlq, ttlw, totworker, maxweight, sitenumber)
+str(bb_colony)
+
+#Bumblebee site location shape file
+bb_sites <- st_read("BombusSites3type.shp")
+str(bb_sites)
+
+#NLCD raster layer
+NLCD <- raster("nlcd_2011_landcover_2011_edition_2014_10_10_0wQL4oSkdXK7DoAQbjRh.tiff")
+plot(NLCD)
+```
+
+```{r Reclassify NLCD classes}
+#NLCD values
+vals<-unique(values(NLCD))
+vals
+#NLCD values:
+#11-open water
+#21-24- developed land
+#31-barren land
+#41-43, 52, 71- forest/shrubland
+#81-pasture land/grassland
+#82-agriculture
+#90-woody wetland
+#95-herbaceous wetland
+
+#Reclassify NLCD values
+recl<-matrix(c(vals, c(rep(1,3),0,rep(1,2),0,1,0,1,rep(0,4),1,0)),ncol=2)
+recl
+
+#Reassign NLCD values using recl matrix
+landuse<-reclassify(NLCD, rcl=recl)
+save(landuse,file="landuse.Rdata")
+load("landuse.Rdata")
+plot(landuse)
+```
+
+```{r Check coordinate reference system and reproject}
+st_crs(bb_sites)
+st_crs(landuse)
+
+landuse_tr <- projectRaster(landuse, crs = crs(bb_sites))
+save(landuse_tr,file="landuse_tr.Rdata")
+load("landuse_tr.Rdata")
+st_crs(landuse_tr)
+
+plot(landuse_tr)
+plot(bb_sites,
+     add = TRUE, pch =21,bg=12)
+```
+
+```{r Create buffers}
+#Check units
+st_crs(landuse_tr)$units #meters
+st_crs(bb_sites)$units #meters
+
+#Create buffer
+bb_bu <-st_buffer(bombus.sites, dist = 1000) # 1000m = 1km buffer
+bumble.buff
+```
+
