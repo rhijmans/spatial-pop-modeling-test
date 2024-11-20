@@ -27,11 +27,8 @@ library(dplyr)
 library(raster)
 library(sp)
 library(landscapemetrics)
-  
 library(conflicted)
-conflict_prefer("select", "dplyr")
-conflict_prefer("filter", "dplyr")
-conflict_prefer("summarize", "dplyr")
+  conflict_prefer("select", "dplyr")
 ```
 
 ```{r Read in data}
@@ -46,7 +43,7 @@ bb_sites <- st_read("BombusSites3type.shp")
 bb_sites
 
 #NLCD raster layer
-NLCD <- raster("~/Downloads/nlcd_2011_landcover_2011_edition_2014_10_10_0wQL4oSkdXK7DoAQbjRh.tiff")
+NLCD <- raster("nlcd_2011_landcover_2011_edition_2014_10_10_0wQL4oSkdXK7DoAQbjRh.tiff")
 plot(NLCD)
 ```
 
