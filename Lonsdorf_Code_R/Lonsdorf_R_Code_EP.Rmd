@@ -1,0 +1,36 @@
+---
+title: "Bee Landscape Population Modeling Attempt"
+output: html_notebook
+---
+```{r Set wd and read in libraries}
+#Set working directory
+knitr::opts_knit$set(root.dir = "~/Documents/GitHub/spatial-pop-modeling-test/Lonsdorf_Code_R/")
+
+#Load libraries
+library(tidyverse)
+library(raster)
+```
+
+```{r Read in data layers}
+#CDL nesting and floral values 
+biophys <- read.csv("Biophysical_table.csv")
+biophys
+
+#Species nesting suitability and foraging activity 
+guild <- read.csv("Guild_table.csv")
+guild
+```
+
+```{r Create parameters}
+cell_size <- 30 #30x30 m cell size
+spec_num <- nrow(guild) #4 species in guild table
+t <- 1 #time steps
+
+#Create raster file path
+#Rasters taken from https://croplandcros.scinet.usda.gov/
+a <- "~/Documents/GitHub/spatial-pop-modeling-test/Lonsdorf_Code_R/Tiff Files/cdl_Yolo_"
+b <- ".TIF"
+raster_path <- paste0(a, (t+2012), b)
+raster_path
+```
+

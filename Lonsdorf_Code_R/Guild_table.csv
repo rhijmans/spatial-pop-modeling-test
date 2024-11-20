@@ -1,0 +1,5 @@
+SPECIES,nesting_suitability_Cavity_index,nesting_suitability_Stem_index,nesting_suitability_Wood_index,nesting_suitability_Ground_index,foraging_activity_Spring_index,foraging_activity_Summer_index,foraging_activity_Fall_index,alpha,relative_abundance
+Sp1,0,0,0,1,0.33,0.67,0,670,1
+Sp2,0,1,0,0,0.75,0.25,0,250,1
+Sp3,0,1,1,0,0.67,0.33,0,300,1
+Sp4,0,0,0,1,0.33,0.33,0.34,670,1
