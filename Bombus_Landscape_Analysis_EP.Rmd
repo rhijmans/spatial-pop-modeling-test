@@ -1,8 +1,10 @@
 ---
 title: "Bombus Landscape Modeling- EP"
-output: html_notebook
+output:
+  word_document: default
+  html_notebook: default
 ---
-```{r Working Directory and Load Packages, include = FALSE}
+```{r Working directory and load packages, include = FALSE}
 #Set working directory
 knitr::opts_knit$set(root.dir = "~/Documents/GitHub/spatial-pop-modeling/Bombus_Landscape_Analysis/")
 
@@ -32,54 +34,55 @@ conflict_prefer("filter", "dplyr")
 conflict_prefer("summarize", "dplyr")
 ```
 
-```{r Read in Data}
+```{r Read in data}
 #Bumblebee colony data
 bb_colony <- read.csv("Bumblebee_colony_data.csv")
 bb_colony <- bb_colony %>%
   select(site, featureID, localtypenum, localtype, labdays, initial_workers, rmaxwt, rworkers, ttlq, ttlw, totworker, maxweight, sitenumber)
-str(bb_colony)
+bb_colony
 
 #Bumblebee site location shape file
 bb_sites <- st_read("BombusSites3type.shp")
-str(bb_sites)
+bb_sites
 
 #NLCD raster layer
-NLCD <- raster("nlcd_2011_landcover_2011_edition_2014_10_10_0wQL4oSkdXK7DoAQbjRh.tiff")
+NLCD <- raster("~/Downloads/nlcd_2011_landcover_2011_edition_2014_10_10_0wQL4oSkdXK7DoAQbjRh.tiff")
 plot(NLCD)
 ```
 
 ```{r Reclassify NLCD classes}
 #NLCD values
-vals<-unique(values(NLCD))
+vals <- unique(values(NLCD))
 vals
 #NLCD values:
-#11-open water
-#21-24- developed land
-#31-barren land
-#41-43, 52, 71- forest/shrubland
-#81-pasture land/grassland
-#82-agriculture
-#90-woody wetland
-#95-herbaceous wetland
+  #11-open water
+  #21-24- developed land
+  #31-barren land
+  #41-43, 52, 71- forest/shrubland
+  #81-pasture land/grassland
+  #82-agriculture
+  #90-woody wetland
+  #95-herbaceous wetland
 
 #Reclassify NLCD values
-recl<-matrix(c(vals, c(rep(1,3),0,rep(1,2),0,1,0,1,rep(0,4),1,0)),ncol=2)
+recl <- matrix(c(vals, c(rep(1,3), 0, rep(1,2), 0, 1, 0, 1, rep(0, 4), 1, 0)), ncol=2)
 recl
 
 #Reassign NLCD values using recl matrix
-landuse<-reclassify(NLCD, rcl=recl)
-save(landuse,file="landuse.Rdata")
-load("landuse.Rdata")
+#landuse <- reclassify(NLCD, rcl=recl)
+#writeRaster(landuse, "landuse.grd")
+landuse <- raster("landuse.grd")
 plot(landuse)
+
 ```
 
 ```{r Check coordinate reference system and reproject}
 st_crs(bb_sites)
 st_crs(landuse)
 
-landuse_tr <- projectRaster(landuse, crs = crs(bb_sites))
-save(landuse_tr,file="landuse_tr.Rdata")
-load("landuse_tr.Rdata")
+#landuse_tr <- projectRaster(landuse, crs = crs(bb_sites))
+#writeRaster(landuse_tr,file="landuse_tr.grd")
+landuse_tr<- raster("landuse_tr.grd")
 st_crs(landuse_tr)
 
 plot(landuse_tr)
@@ -93,7 +96,94 @@ st_crs(landuse_tr)$units #meters
 st_crs(bb_sites)$units #meters
 
 #Create buffer
-bb_bu <-st_buffer(bombus.sites, dist = 1000) # 1000m = 1km buffer
-bumble.buff
+bb_buffer <-st_buffer(bb_sites, dist = 1000) #1000m = 1km buffer
+bb_buffer
+```
+
+```{r Crop using buffer}
+landuse_tr_cr <- crop(landuse_tr, bb_buffer)
+plot(landuse_tr_cr)
+```
+
+```{r Interactive map}
+ex.map <- tm_shape(landuse_tr_cr) +
+  tm_raster() +
+  tm_shape(bb_sites) +
+  tm_dots(col = "TYPE", palette = "Blues", style = "quantile", size = 0.02) +
+  tm_shape(bb_buffer) +
+  tm_borders(col="blue") +  
+  tmap_mode("view")
+ex.map 
+```
+
+```{r Calculate percentage natural habitat within buffer}
+nlcd_mean <- raster::extract(landuse_tr_cr, #raster file
+                     bb_buffer, #shape (point/polygon) file
+                     fun = mean, #function to perform
+                     sp = TRUE)  #create spatial object
+nlcd_mean <- as_tibble(nlcd_mean) %>%
+  rename(prop_nh = nlcd_2011_landcover_2011_edition_2014_10_10_0wQL4oSkdXK7DoAQbjRh,
+         site = SITE)
+
+#Merge colony performance data with NLCD df
+bb_merge <- left_join(nlcd_mean, bb_colony, by = "site")
+bb_merge
+
+write.csv(bb_merge, file = "Bumblebee_landscape_output2022.csv")
+```
+
+```{r Analyzing effect of natural habitat on colony performance}
+#Linear regression
+ggplot(bb_merge, aes(x = prop_nh, y = rworkers)) +
+  geom_point(aes(col = TYPE), shape = 1, size = 2.5, stroke = 1.25) +
+  geom_smooth(method = lm, se = FALSE, color="black") + 
+  labs(x = "Proportion of Natural Habitat", y = "Residual Worker Number") +
+  theme_classic() + 
+  theme(legend.title=element_blank(),legend.position = c("top"),
+        legend.direction = "horizontal",
+        text=element_text(family="Times", color = "black", size=22), 
+        axis.text=element_text(family="Times", color = "black", size=14))
+
+#Curvilinear regression
+ggplot(bb_merge, aes(x = prop_nh, y = rworkers)) +
+  geom_point(aes(col = TYPE), shape = 1, size = 2.5, stroke = 1.25) +
+  geom_smooth(method = lm, formula = y ~ poly(x,2), se = FALSE, color="black") +
+  labs(x = "Proportion of Natural Habitat", y = "Residual Worker Number") +
+  theme_classic() + 
+  theme(legend.title=element_blank(),legend.position = c("top"),
+        legend.direction = "horizontal",
+        text=element_text(family="Times", color = "black", size=22),
+        axis.text=element_text(family="Times", color = "black", size=14))
+
+#Spline
+ggplot(bb_merge, aes(x = prop_nh, y = rworkers)) +
+  geom_point(aes(col = TYPE), shape = 1, size = 2.5, stroke = 1.25) +
+  geom_smooth(method = lm, formula = y ~ splines::bs(x, 2), se = FALSE, color="black") +
+  labs(x = "Proportion of Natural Habitat", y = "Residual Worker Number") +
+  theme_classic() + 
+  theme(legend.title=element_blank(),legend.position = c("top"),
+        legend.direction = "horizontal",
+        text=element_text(family="Times", color = "black", size=22),
+        axis.text=element_text(family="Times", color = "black", size=14))
+
+#Effect of habitat type
+ggplot(bb_merge, aes(x = prop_nh, y = rworkers, color = TYPE)) +
+  geom_boxplot() +
+  labs(x = "Local Habitat Type", y = "Residual Worker Number") +
+  theme_classic() + 
+  theme(legend.title=element_blank(),legend.position = c("top"),
+        text=element_text(family="Times", color = "black", size=22), 
+        axis.text=element_text(family="Times", color = "black", size=14))
+
+#Habitat type and proportion of natural habitat interaction
+ggplot(bb_merge, aes(x = prop_nh, y = rworkers, color = TYPE)) +
+  geom_point(shape = 1, size = 2.5, stroke = 1.25) +
+  geom_smooth(method = lm, se = FALSE) + 
+  labs(x = "Proportion of Natural Habitat", y = "Residual Worker Number") +
+  theme_classic() + 
+  theme(legend.title=element_blank(),legend.position = c("top"),
+        legend.direction = "horizontal",
+        text=element_text(family="Times", color = "black", size=22),
+        axis.text=element_text(family="Times", color = "black", size=14))
 ```
 
