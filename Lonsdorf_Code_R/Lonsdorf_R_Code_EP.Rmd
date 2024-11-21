@@ -24,13 +24,37 @@ guild
 ```{r Create parameters}
 cell_size <- 30 #30x30 m cell size
 spec_num <- nrow(guild) #4 species in guild table
-t <- 1 #time steps
+t <- 1 #time step
 
 #Create raster file path
 #Rasters taken from https://croplandcros.scinet.usda.gov/
 a <- "~/Documents/GitHub/spatial-pop-modeling-test/Lonsdorf_Code_R/Tiff Files/cdl_Yolo_"
 b <- ".TIF"
-raster_path <- paste0(a, (t+2012), b)
-raster_path
+raster_path <- paste0(a, (t+2012), b) #create raster path based on time step
+```
+
+```{r Create empty arrays}
+curr_LC <- raster(raster_path) #assign current time step raster
+r <- nrow(curr_LC) #number of rows in raster file
+c <- ncol(curr_LC) #number of columns in raster file
+
+queen_array <- array(0, dim = c(r, c, spec_num, 11)) #empty array to be filled with queens
+queen_array_fin <- array(0, dim = c(r, c, spec_num)) #final queen numbers
+pol_ls_score <- array(0, dim = c(r, c, spec_num)) #pollinator landscape score
+dispersers <- array(0, dim = c(r, c, spec_num, 11))
+```
+
+```{r Initialize queens}
+queen_seed <- array(0, dim = c(r, c, spec_num))
+queen_seed[1016:1025, 1021:1030, ] <- array(runif(n = (10 * 10 * spec_num)), dim = c(10, 10, spec_num)) #generate random number (0-1) in 10x10 array in the center of raster file
+
+#Assign a queen to a cell in array if > 0.8 (20% of cells will receive a queen)
+queen_array[ , , , 1] <- ifelse(queen_seed > 0.8, 1, 0)
+```
+
+```{r}
+for (t in 1:24) {
+  if t > 11
+}
 ```
 
