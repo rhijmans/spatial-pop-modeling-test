@@ -9,6 +9,8 @@ knitr::opts_knit$set(root.dir = "~/Documents/GitHub/spatial-pop-modeling-test/Lo
 #Load libraries
 library(tidyverse)
 library(raster)
+library(terra)
+
 ```
 
 ```{r Read in data layers}
@@ -16,9 +18,17 @@ library(raster)
 biophys <- read.csv("Biophysical_table.csv")
 biophys
 
-#Species nesting suitability and foraging activity 
+#Proto-species nesting suitability and foraging activity 
 guild <- read.csv("Guild_table.csv")
+  #Adding maximum number of nests w/in a cell for each proto-species
+  guild$max_nest <- c(3, 6, 9, 12)
 guild
+
+#Description of proto-species:
+  #Sp1- ground-nesting, spring (0.33) and summer (0.67) forager, foraging distance of 670 m, low density (3 queens per cell)
+  #Sp2- stem-nesting, spring (0.75) and summer (0.25) forager, foraging distance of 250 m, med density (6 queens per cell)
+  #Sp3- stem and wood-nesting, spring (0.67) and summer (0.33) forager, foraging distance of 300, med density (9 queens per cell)
+  #Sp4- ground-nesting, spring (0.33), summer (0.33), and fall (0.34) forager, foraging distance of 670 m, high density (12 queens per cell)
 ```
 
 ```{r Create parameters}
@@ -34,7 +44,9 @@ raster_path <- paste0(a, (t+2012), b) #create raster path based on time step
 ```
 
 ```{r Create empty arrays}
-curr_LC <- raster(raster_path) #assign current time step raster
+curr_LC <- rast(raster_path) #assign current time step raster
+crop_extent <- c(566938.2, 626938.2, 4236149, 4296149)
+curr_LC <-  crop(curr_LC, crop_extent)
 r <- nrow(curr_LC) #number of rows in raster file
 c <- ncol(curr_LC) #number of columns in raster file
 
@@ -52,9 +64,44 @@ queen_seed[1016:1025, 1021:1030, ] <- array(runif(n = (10 * 10 * spec_num)), dim
 queen_array[ , , , 1] <- ifelse(queen_seed > 0.8, 1, 0)
 ```
 
-```{r}
-for (t in 1:24) {
-  if t > 11
+
+```{r For loop}
+#Calc weighted average of foraging quality using foraging activity prop 
+
+for (t in 1:21){
+  #Pull new raster file after 10 years of initializing
+  if t > 11{
+    raster_path <- paste0(a, (t+2012-10), b) #assign new raster file based on time step
+    curr_LC <- raster(raster_path) #current land cover raster
+    curr_LC <-  crop(curr_LC, crop_extent) #crop land cover to same extent
+  }
+  
+  #Land cover types for raster file
+    type <- as_vector(unname(unique(curr_LC))) #create a vector of  unique land cover values
+  LC_type <- tibble(type = type, #land cover types in raster file
+                    num_pix = 0) #create empty column for number of pixels of each type
+  num_LC <- nrow(LC_type) #number of land cover types in raster file
+  tot_LC <- nrow(biophys) #number of land cover values in biophys table
+  
+  #How many pixels of each cover type
+  for (i in 1:num_LC) {
+    type_i <- LC_type$type[i]
+    LC_type$num_pix[i] <- sum(values(curr_LC) == type_i, na.rm = T)
+  }
+  
+  #Per capita reproduction rate
+  for (s in 1:spec_num) {
+    max_nest <- guild$max_nest[i]
+    reproduction <- 
+    
+    
+    forage_dist <- guild$alpha[i]
+    radius <- 
+  }
 }
+```
+
+```{r testing}
+
 ```
 
