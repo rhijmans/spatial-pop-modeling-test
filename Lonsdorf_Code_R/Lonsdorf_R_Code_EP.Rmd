@@ -92,16 +92,34 @@ for (t in 1:21){
   #Per capita reproduction rate
   for (s in 1:spec_num) {
     max_nest <- guild$max_nest[i]
-    reproduction <- 
+    reproduction <- #FINISH THIS
     
     
     forage_dist <- guild$alpha[i]
-    radius <- 
+    radius <- round(forage_dist/)
   }
 }
 ```
 
 ```{r testing}
-
+    #Maximum number of nests per cell and max queens produced per nest
+    max_nest <- guild$max_nest[1] #maximum number of nests within a cell
+    #reproduction <- #FINISH THIS
+    
+    #Foraging distance matrix
+    forage_dist <- guild$alpha[1] #foraging distance for each species
+    radius <- round(forage_dist/cell_size) #foraging radius in cells
+    X <- seq(-radius, radius) #all integers between -radius and radius
+    Y <- seq(-radius, radius) #all integers between -radius and radius
+    XY_grid <- expand.grid(X, Y) %>% #all combinations of X and Y
+      rename(X = Var1, Y = Var2)
+    
+    dist_mat <- cell_size * sqrt(XY_grid$X^2 + XY_grid$Y^2) #distance to center of circle 
+    dist_mat_decay <- exp(-dist_mat/forage_dist) * (dist_mat <= 2 * forage_dist) #exp decay to transform square into circle
+    eff_forage <- sum(dist_mat_decay) #sum of circle distance matrix
+    filter <- dist_mat_decay/eff_forage #normalized distant matrix
+    
+    #Floral and nesting habitat arrays by species
+      
 ```
 
