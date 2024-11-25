@@ -1,1 +1,0 @@
-# Spatial Population Modeling
