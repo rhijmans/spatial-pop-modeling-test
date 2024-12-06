@@ -66,7 +66,7 @@ for (t in 1:20){
   if (t > 10) {
     raster_path <- paste0(base, (t+2012-10), ".TIF") #assign new raster file based on time step
     curr_LC <- terra::rast(raster_path) #current land cover raster
-    curr_LC <- terra::trim(curr_LC)
+    curr_LC <- terra::trim(curr_LC) #remove excess NA rows
     curr_LC <-  terra::crop(curr_LC, extent) #crop land cover to same extent
   }
   
