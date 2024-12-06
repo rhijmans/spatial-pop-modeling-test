@@ -1,0 +1,140 @@
+
+get_floral <- function() {
+  f <- read.csv("CA_bees_floral.csv") |> na.omit()
+  f[,-1] <- f[,-1] / 100
+  f
+}
+
+run_species <- function(s) {
+  print(paste("species ", s)); flush.console()
+  
+  #CDL floral resources, nesting, and foraging 
+  reclass_floral <- get_floral()
+  
+  reclass_nest <- read.csv("CA_bees_nesting.csv") |> na.omit()
+  reclass_nest[,-1] <- reclass_nest[,-1] / 100
+  
+  reclass_lifehist <- read.csv("CA_bees_forage.csv") |> na.omit()
+  
+  cell_size <- 30 #30x30 m cell size
+  spec_num <- nrow(reclass_lifehist) #7 species in guild table
+  t_step <- 1 #time step
+  
+  #Create raster file path
+  #Rasters taken from https://croplandcros.scinet.usda.gov/
+  base <- "Tiff Files/cdl_Yolo_"
+  raster_path <- paste0(base, (t_step + 2012), ".TIF") #create raster path based on time step
+  
+  curr_LC <- terra::rast(raster_path) #assign current time step raster
+  curr_LC <- terra::trim(curr_LC)
+  extent <- floor(terra::ext(curr_LC))
+  
+  nr <- nrow(curr_LC) #number of rows in raster file
+  nc <- ncol(curr_LC) #number of columns in raster file
+  
+  #Empty arrays/matrices
+  #Arrays with nr, nc, spec_num, and all time steps (20)
+  
+  
+  
+  #Maximum number of nests per cell and max queens produced per nest
+  max_nest <- reclass_lifehist$Nests[s] #maximum number of nests within a cell
+  max_rep <- reclass_lifehist$Rep[s] #maximum number of queens produced per nest
+  
+  #Foraging distance matrix
+  forage_dist <- reclass_lifehist$Disp[s] #foraging distance for each species
+  radius <- 2*round(forage_dist/cell_size) #foraging radius in cells, 2 * avg foraging distance ->  95%
+  X <- outer(-radius:radius, rep(1, length(-radius:radius)), FUN = function(x, y) x)  # matrix with center at center of circle
+  Y <- outer(rep(1, length(-radius:radius)), -radius:radius, FUN = function(x, y) y)  # matrix with center at center of circle
+  
+  dist_mat <- as.matrix(cell_size * sqrt(X^2 + Y^2)) #distance to center of circle 
+  dist_mat_decay <- exp(-dist_mat/forage_dist) * (dist_mat <= 2 * forage_dist) #exp decay to transform square into circle
+  eff_forage <- sum(dist_mat_decay) #sum of circle distance matrix
+  filter <- dist_mat_decay/eff_forage #normalized distant matrix (sums to 1)
+  
+  #Initialize floral and nesting habitat
+  #HF <- HN <- terra::as.matrix(curr_LC, wide = TRUE)
+  # HN <- terra::as.matrix(curr_LC, wide = TRUE)
+  
+  #Reclass landcover for each cover type by species 
+  tot_LC <- nrow(reclass_nest) #number of land cover values in biophys table 
+  
+  LC_type <- terra::freq(curr_LC)[,-1]
+  names(LC_type) = c("type", "num_pix")
+  HF = terra::classify(curr_LC, reclass_floral[, c(1, s+1)])
+  HN = terra::classify(curr_LC, reclass_nest[, c(1, s+1)]) 
+  HN = terra::as.matrix(HN, wide=TRUE)
+  
+  set.seed(10)
+  
+  queen_array <- max_queen_array <- disperse <- array(0, dim = c(nr, nc, 20))
+  
+  #Arrays with nr, nc, and spec_num
+  # queen_array_fin <- 
+  pol_ls_score <- array(0, dim = c(nr, nc)) 
+  
+  #Matrix with species and all time steps (20)
+  spec_pop <- matrix(0, nrow = spec_num, ncol = 20) #total species population at each time step
+  
+  queen_seed <- array(0, dim = c(nr, nc))
+  queen_seed[611:620, 809:818] <- runif(n = 10 * 10) #generate random number (0-1) in 10x10 array in the center of raster file
+  queen_array[ , , 1] <- ifelse(queen_seed > 0.8, 1, 0) #assign a queen to a cell in array if > 0.8 (20% of cells will receive a queen)
+  
+  
+  for (t in 1:20){
+    print(t); flush.console()
+    #Pull new raster file after 10 years of initializing
+    if (t > 10) {
+      raster_path <- paste0(base, (t+2012-10), ".TIF") #assign new raster file based on time step
+      curr_LC <- terra::rast(raster_path) #current land cover raster
+      #curr_LC <- terra::trim(curr_LC) #remove excess NA rows
+      curr_LC <-  terra::crop(curr_LC, extent) #crop land cover to same extent
+      #How many pixels of each cover type
+      LC_type <- terra::freq(curr_LC)[,-1]
+      names(LC_type) = c("type", "num_pix")
+      HF = terra::classify(curr_LC, reclass_floral[, c(1, s+1)])
+      HN = terra::classify(curr_LC, reclass_nest[, c(1, s+1)]) 
+      HN = terra::as.matrix(HN, wide=TRUE)
+    }
+    #Convert HF to raster for convolution
+    forage <- terra::focal(HF, filter) #convolution based on distance and available floral resources
+    forage_mat <- terra::as.matrix(forage, wide = T)
+    pol_ls_score <- HN * forage_mat
+    
+    #Disperse queens
+    if (t > 1) {
+      max_queen_array[,,t] <- max_nest * HN #Calculate maximum number of queens per cell given landscape conditions
+      queen_array[,,t] <- pmin(disperse[,,t-1], max_queen_array[,,t]) #Takes the smallest value between the two arrays. The number of queens in a cell cannot exceed the maximum.
+      
+      rep_temp <- matrix(rnorm(nr*nc), nrow = nr, ncol = nc) #Random numbers to create variation
+      range <- max(rep_temp) - min(rep_temp) #range of random values
+      standardized <- floor(max_rep * 2 * (rep_temp - min(rep_temp))/range) #standardize values
+      rep <- queen_array[,,t] * (standardized * forage_mat) #generate reproduction using 
+      rep_rast <- terra::rast(rep)
+      disperse[,,t] <- terra::as.matrix(terra::focal(rep_rast, filter), wide = TRUE) #convolution of dispersal of new queens 
+      
+    } else {
+      #Where t = 1 (initial conditions)
+      rep_temp <- matrix(rnorm(nr*nc), nrow = nr, ncol = nc)
+      range <- diff(range(rep_temp))
+      standardized <- floor(max_rep * 2 * (rep_temp - min(rep_temp))/range)
+      rep <- queen_array[,,t] * (standardized * forage_mat)
+      rep_rast <- terra::rast(rep)
+      disperse[,,t] <- terra::as.matrix(terra::focal(rep_rast, filter), wide = T)
+    }
+    
+    spec_pop[,t] <- sum(queen_array[,,t], na.rm = T) #population size of each species at given time step
+    
+  }
+  x <- terra::rast(curr_LC, nlyr=20, vals=queen_array)
+  terra::writeRaster(x, paste0("species_", s, ".tif"), overwrite=TRUE)
+}
+
+
+s <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
+print(s)
+r <- run_species(s)
+print("OK")
+
+
+#sbatch --array=1-6 -p bmh --time=300 --mem=8G --job-name=bees ~/farm/clusterR.sh ldorf_cluster.R
