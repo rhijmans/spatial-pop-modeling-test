@@ -97,7 +97,7 @@ run_species <- function(s) {
       HN = terra::as.matrix(HN, wide=TRUE)
     }
     #Convert HF to raster for convolution
-    forage <- terra::focal(HF, filter) #convolution based on distance and available floral resources
+    forage <- terra::focal(HF, filter, na.rm=TRUE) #convolution based on distance and available floral resources
     forage_mat <- terra::as.matrix(forage, wide = T)
     pol_ls_score <- HN * forage_mat
     
@@ -111,7 +111,7 @@ run_species <- function(s) {
       standardized <- floor(max_rep * 2 * (rep_temp - min(rep_temp))/range) #standardize values
       rep <- queen_array[,,t] * (standardized * forage_mat) #generate reproduction using 
       rep_rast <- terra::rast(rep)
-      disperse[,,t] <- terra::as.matrix(terra::focal(rep_rast, filter), wide = TRUE) #convolution of dispersal of new queens 
+      disperse[,,t] <- terra::as.matrix(terra::focal(rep_rast, filter, na.rm=TRUE), wide = TRUE) #convolution of dispersal of new queens 
       
     } else {
       #Where t = 1 (initial conditions)
@@ -120,7 +120,7 @@ run_species <- function(s) {
       standardized <- floor(max_rep * 2 * (rep_temp - min(rep_temp))/range)
       rep <- queen_array[,,t] * (standardized * forage_mat)
       rep_rast <- terra::rast(rep)
-      disperse[,,t] <- terra::as.matrix(terra::focal(rep_rast, filter), wide = T)
+      disperse[,,t] <- terra::as.matrix(terra::focal(rep_rast, filter, na.rm=TRUE), wide = T)
     }
     
     spec_pop[,t] <- sum(queen_array[,,t], na.rm = T) #population size of each species at given time step
